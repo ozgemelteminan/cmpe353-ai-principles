@@ -1,6 +1,23 @@
 import random
+import sys
+import os
+import subprocess
+import collections
 from midiutil import MIDIFile
-from baroque_engine import UniversalBaroqueSolver 
+
+# --- KÜTÜPHANE KONTROLLERİ ---
+try:
+    from baroque_engine import UniversalBaroqueSolver 
+except ImportError:
+    print("\n[!] HATA: 'baroque_engine.py' dosyası bulunamadı.")
+    sys.exit(1)
+
+try:
+    import matplotlib.pyplot as plt
+    GRAPH_AVAILABLE = True
+except ImportError:
+    GRAPH_AVAILABLE = False
+    print("[!] Matplotlib yüklü değil, grafik çizilemeyecek.")
 
 # --- MELODİK YAPI TASLARI ---
 verse_theme_a = [71, 72, 71, 69, 67, 66, 64] 
@@ -12,7 +29,6 @@ intro_outro = [64, 66, 67, 69, 71, 64]
 solo_theme  = [76, 79, 76, 74, 76, 79, 81, 79, 76, 74, 72] 
 
 # --- ENSTRÜMAN LİSTESİ ---
-
 INSTRUMENTS = {
     "Grand Piano": 0,
     "Violin": 40,
@@ -43,6 +59,71 @@ MIXER_SETTINGS = {
     "Choir Bass":        {"pan": 90,  "reverb": 100}  # Sağdan gelir
 }
 
+# --- OTOMATİK PDF DÖNÜŞTÜRÜCÜ ---
+def convert_midi_to_pdf(midi_filename):
+    """
+    MuseScore'u direkt komut satırından çağırarak PDF oluşturur.
+    Music21 kütüphanesindeki hataları bypass eder.
+    """
+    print(f"\n[i] '{midi_filename}' otomatik olarak PDF'e dönüştürülüyor...")
+    
+    # MuseScore Yolu (MacOS için)
+    musescore_path = '/Applications/MuseScore 4.app/Contents/MacOS/mscore'
+    
+    # Eğer MuseScore 4 yoksa Studio'yu dene
+    if not os.path.exists(musescore_path):
+        musescore_path = '/Applications/MuseScore Studio.app/Contents/MacOS/mscore'
+    
+    if not os.path.exists(musescore_path):
+        print("[!] MuseScore uygulaması bulunamadı. PDF oluşturulamıyor.")
+        return
+
+    pdf_output = midi_filename.replace(".mid", ".pdf")
+    
+    try:
+        command = [musescore_path, midi_filename, "-o", pdf_output]
+        process = subprocess.run(command, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        
+        if process.returncode == 0 or os.path.exists(pdf_output):
+            print(f"[+] BAŞARILI: PDF Notası Oluşturuldu -> {pdf_output}")
+        else:
+            print("[!] PDF oluşturma işlemi tamamlanamadı.")
+    except Exception as e:
+        print(f"[!] Bir hata oluştu: {e}")
+
+# --- ANALİZ GRAFİĞİ ---
+def analyze_composition(full_cf, full_cp, midi_filename):
+    if not GRAPH_AVAILABLE:
+        return
+
+    print("\n[i] Analiz grafiği oluşturuluyor...")
+    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    def get_note_name(midi_val): return note_names[midi_val % 12]
+    
+    melody_names = [get_note_name(n) for n in full_cp]
+    melody_counts = collections.Counter(melody_names)
+    
+    plt.figure(figsize=(14, 9))
+    plt.style.use('ggplot') 
+    
+    # Grafik 1: Nota Dağılımı
+    plt.subplot(2, 1, 1)
+    plt.bar(list(melody_counts.keys()), list(melody_counts.values()), color='firebrick', alpha=0.7)
+    plt.title('Hijo de la Luna - Yapay Zeka Nota Tercihleri', fontsize=14)
+    plt.ylabel('Kullanım Sayısı')
+    
+    # Grafik 2: Melodik Hareket
+    plt.subplot(2, 1, 2)
+    plt.plot(full_cp, label='Melodi (Soprano/Flüt)', color='royalblue', linewidth=2)
+    plt.plot(full_cf, label='Bas (Piyano/Cello)', color='gray', linestyle='--', alpha=0.7)
+    plt.title('Melodik Hareket ve Tansiyon', fontsize=14)
+    plt.legend()
+    plt.tight_layout()
+    
+    png_name = midi_filename.replace(".mid", "_Analiz.png")
+    plt.savefig(png_name)
+    print(f"[+] GRAFİK KAYDEDİLDİ: {png_name}")
+
 def get_human_touch(inst_name, measure_len, base_velocity):
     timing_offset = random.uniform(-0.01, 0.01) 
     duration_factor = 0.95 
@@ -63,7 +144,8 @@ def save_orchestrated_waltz_midi(full_cf, full_cp, arrangement, filename, solo_r
     num_tracks = len(arrangement["melody_instruments"]) + len(arrangement["bass_instruments"])
     midi = MIDIFile(num_tracks) 
     
-    BPM = 148
+    # Başlangıç Temposu
+    START_BPM = 148
     MEASURE_LEN = 3.0 
     
     track_idx = 0
@@ -73,13 +155,18 @@ def save_orchestrated_waltz_midi(full_cf, full_cp, arrangement, filename, solo_r
     all_instruments = arrangement["melody_instruments"] + arrangement["bass_instruments"]
     melody_set = set(arrangement["melody_instruments"])
 
+    # Şarkının toplam uzunluğunu bul (Ritardando hesaplamak için)
+    total_measures = len(full_cp)
+
     for inst_name in all_instruments:
         if channel_cursor == 9: channel_cursor += 1
             
         program_num = INSTRUMENTS.get(inst_name, 0)
         midi.addTrackName(track_idx, 0, inst_name)
         midi.addProgramChange(track_idx, channel_cursor, 0, program_num)
-        midi.addTempo(track_idx, 0, BPM)
+        
+        # İlk başta tempoyu ayarla
+        midi.addTempo(track_idx, 0, START_BPM)
         
         settings = MIXER_SETTINGS.get(inst_name, {"pan": 64, "reverb": 40})
         midi.addControllerEvent(track_idx, channel_cursor, 0, 10, settings["pan"])
@@ -89,14 +176,26 @@ def save_orchestrated_waltz_midi(full_cf, full_cp, arrangement, filename, solo_r
         note_list = full_cp if inst_name in melody_set else full_cf
         
         for i, note in enumerate(note_list):
+            
+            # --- RITARDANDO (YAVAŞLAMA) MANTIĞI ---
+            # Sadece 1. kanalda tempo kontrolü yapalım ki çakışma olmasın
+            if track_idx == 0:
+                measures_left = total_measures - i
+                # Son 4 ölçüde yavaşlamaya başla
+                if measures_left <= 4:
+                    # Formül: Her ölçüde tempoyu biraz daha düşür
+                    # 148 -> 130 -> 110 -> 90 -> 80 gibi
+                    drop_amount = (5 - measures_left) * 15 
+                    new_bpm = max(80, START_BPM - drop_amount)
+                    midi.addTempo(track_idx, time_cursor, new_bpm)
+
+            # Solo Kontrolü
             is_solo_section = (solo_start <= i < solo_end)
             if inst_name in melody_set and is_solo_section and inst_name != "Flute":
                 time_cursor += MEASURE_LEN
                 continue 
 
             play_note = note
-            
-            # --- ÖZEL AYARLAR ---
             if inst_name == "Flute": play_note += 12
             if inst_name in ["Cello", "Contrabass", "Choir Bass"]: play_note -= 12 
 
@@ -108,11 +207,28 @@ def save_orchestrated_waltz_midi(full_cf, full_cp, arrangement, filename, solo_r
             
             t_off, d_fac, vol = get_human_touch(inst_name, MEASURE_LEN, base_vol)
             
+            # --- ARPEJ VE NOTA YAZMA ---
+            
             if inst_name == "Grand Piano" and inst_name not in melody_set:
+                # Piyano Ritim: PUM - Tı-rın - Tı-rın (Arpejli)
+                
+                # 1. Vuruş (Bas) - Güçlü
                 midi.addNote(track_idx, channel_cursor, play_note - 12, time_cursor + t_off, 0.8, vol + 20)
+                
                 cp_note = full_cp[i]
-                midi.addNote(track_idx, channel_cursor, play_note, time_cursor + 1 + t_off, 0.7, vol - 15)
-                midi.addNote(track_idx, channel_cursor, cp_note - 12, time_cursor + 2 + t_off, 0.7, vol - 15)
+                
+                # ARPEJ HIZI (Notalar arasındaki milisaniyelik fark)
+                arp_speed = 0.04 
+
+                # 2. Vuruş (Arpejli Akor)
+                # İlk nota
+                midi.addNote(track_idx, channel_cursor, play_note, time_cursor + 1 + t_off, 0.7, vol - 10)
+                # İkinci nota biraz gecikmeli gelir (Arpej etkisi)
+                midi.addNote(track_idx, channel_cursor, cp_note - 12, time_cursor + 1 + t_off + arp_speed, 0.7, vol - 15)
+
+                # 3. Vuruş (Arpejli Akor)
+                midi.addNote(track_idx, channel_cursor, play_note, time_cursor + 2 + t_off, 0.7, vol - 10)
+                midi.addNote(track_idx, channel_cursor, cp_note - 12, time_cursor + 2 + t_off + arp_speed, 0.7, vol - 15)
             
             elif inst_name == "Nylon Guitar" and inst_name not in melody_set:
                 midi.addNote(track_idx, channel_cursor, play_note - 12, time_cursor + t_off, 0.8, vol - 10)
@@ -132,6 +248,7 @@ def save_orchestrated_waltz_midi(full_cf, full_cp, arrangement, filename, solo_r
         midi.writeFile(output_file)
     
     print(f"\n[+] DOSYA KAYDEDİLDİ: {filename}")
+    print("[i] Özellikler: Split Choir + Piano Arpeggios + Final Ritardando.")
 
 def generate_full_song_structure():
     song_structure = []
@@ -161,7 +278,7 @@ def generate_full_song_structure():
     solo_end_index = 0
     current_note_count = 0
     
-    print(f"\n[>] Hijo de la Luna (Split Choir Mix) Hazırlanıyor...")
+    print(f"\n[>] Hijo de la Luna (Final Masterpiece) Hazırlanıyor...")
     
     for section in song_structure:
         is_this_solo = (section == solo_section_content)
@@ -191,10 +308,7 @@ if __name__ == "__main__":
     
     if cf:
         orchestra_config = {
-            # Melodiye "Choir Soprano" ekledim (Violin ile beraber melodiyi söyler)
             "melody_instruments": ["Violin", "Flute", "Choir Soprano"], 
-            
-            # Basa "Choir Bass" ekledim (Piyano ile beraber altyapıyı söyler)
             "bass_instruments": [
                 "Grand Piano",     
                 "String Ensemble", 
@@ -205,4 +319,14 @@ if __name__ == "__main__":
                 "Nylon Guitar"     
             ] 
         }
-        save_orchestrated_waltz_midi(cf, cp, orchestra_config, "Hijo_SplitChoir_baroque.mid", solo_range)
+        
+        output_file = "Hijo_Masterpiece_baroque.mid"
+        
+        # 1. MIDI'yi Kaydet
+        save_orchestrated_waltz_midi(cf, cp, orchestra_config, output_file, solo_range)
+        
+        # 2. Grafik Çiz (PNG)
+        analyze_composition(cf, cp, output_file)
+        
+        # 3. PDF Oluştur (MuseScore 4)
+        convert_midi_to_pdf(output_file)
