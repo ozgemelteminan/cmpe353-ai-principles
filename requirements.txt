@@ -1,0 +1,4 @@
+midiutil>=1.2.1
+music21>=9.1.0
+matplotlib>=3.7.1
+numpy>=1.24.0
