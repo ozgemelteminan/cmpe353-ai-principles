@@ -1,134 +1,229 @@
-# 🎼 **ArtiFux: Constraint-Based Counterpoint Composer**
+# 🎼 ArtiFux: Constraint-Based Counterpoint Composer
 
-**Course:** *CMPE 353 — Principles of AI*  
-**Project Type:** *Algorithmic Composition & Constraint Satisfaction (CSP)*
+**Course:** CMPE 353 — Principles of AI  
+**Project Type:** Algorithmic Composition & Constraint Satisfaction (CSP)
 
-ArtiFux is an AI-powered music engine that composes counterpoint by transforming **Baroque counterpoint rules** (1600–1750) into **formal constraints**. Given a *Cantus Firmus*, the system generates a stylistically accurate **counterpoint melody** using classical *Species Counterpoint* principles.
+ArtiFux is an AI-powered music engine that composes **Baroque-style counterpoint** by transforming historical counterpoint rules (1600–1750) into formal computational constraints.
 
->It separates theory rules into **Hard Constraints** (strict) and **Soft Constraints** (aesthetic scoring), then uses a **Backtracking CSP solver** to explore the search space and select the most musical solution.
+Given a **Cantus Firmus** (base melody), the system generates a stylistically accurate counterpoint melody using **Species Counterpoint** principles inspired by **J.J. Fux’s _Gradus ad Parnassum_**.
 
-<br>
+The engine separates music theory into:
+- **Hard Constraints** (strict, mandatory rules)
+- **Soft Constraints** (heuristic, aesthetic preferences)
 
-# 🎵 Music Theory Meets AI
-
-The core engine, `baroque_engine.py`, is inspired by J.J. Fux’s *Gradus ad Parnassum* and encodes real counterpoint discipline through computational logic.
-
-<br>
-
-
-## 1️⃣ **Hard Constraints (Mandatory)**
-Violating any of these results in **immediate pruning**. The engine discards the candidate before continuing the search.
-
-| 🎛️ Rule | Function | Description |
-|---------|-----------|----------|
-| 🚫 **Parallel Fifths & Octaves** | `hc_parallel_fifths_octaves` | Prevents voices from moving in the same direction into perfect 5ths or octaves. |
-| 🎹 **Strong-Beat Consonance** | `hc_consonant_interval` | Strong beats must use consonant intervals (Unison, 3rd, 5th, 6th, Octave). |
-| 📉 **Suspension Prep & Resolution** | `hc_suspension_resolution` | Dissonances must be prepared and resolved downwards by stepwise motion. |
-| ⚠️ **Forbidden Melodic Intervals** | `hc_no_augmented_melodic` | Prohibits non-vocal intervals such as tritones, major 7ths, and augmented leaps. |
+A **Backtracking CSP solver** explores the search space and selects the most musical solution.
 
 <br>
 
-## 2️⃣ **Soft Constraints & Heuristic Scoring**
 
-### A. **Explicit Soft Constraints**
-These rules are applied to completed partial solutions to evaluate their quality.
+## 🎵 Music Theory Meets AI
 
-| 🌟 Rule | Score | Description |
-|---------|------|----------|
-| ⚡ **Accented Dissonance** | +5 | Correct preparation and resolution of suspensions are highly rewarded. |
-| 🌉 **Passing Tone** | +2 | Stepwise motion connecting consonances on weak beats. |
-| 🔄 **Contrary Motion** | +2 | Rewarded when voices move in opposite directions (independence). |
-| ❌ **Hidden Parallels** | -5 | Penalizes hidden parallels reached by a leap (skip). |
-| 🤏 **Close Position** | +1 | Rewards keeping the voices within a range of 16 semitones. |
-
----
-
-### B. **Candidate Ordering Heuristics**
-Used within `get_valid_candidates()` to prioritize the search tree order.
-
-| 🔍 Heuristic | Score | Description |
-|--------------|------|----------|
-| 🔄 **Contrary Motion** | +3 | Contrary motion candidates are tried first. |
-| 🚶 **Stepwise Motion** | +2 | Prioritizes smooth, conjunct melodic lines. |
-| 🤝 **Imperfect Consonances** | +1 | Imperfect consonances (3rds, 6ths) are preferred over perfect ones. |
-| 🎹 **Scale Filtering** | -1000 | Massive penalty for notes outside the key scale. |
-| 🐇 **Leap Penalty** | -2 | Large leaps are discouraged in the ordering. |
+The core engine, `baroque_engine.py`, encodes authentic Baroque counterpoint discipline into algorithmic logic.  
+Each generated melody respects traditional voice-leading rules, dissonance treatment, and cadence structure.
 
 <br>
 
-# 📂 **Project Structure**
 
-This project uses a modular structure: an AI engine + multiple composition scripts + output folders.
+## 1️⃣ Hard Constraints (Mandatory)
 
-## **`codes/` — Source Files**
+Violating any of these constraints causes **immediate pruning** of the candidate note.
 
-* **`baroque_engine.py`** 🧠 — CSP solver, theory rules, Backtracking.
-* **`generate_gameOfThrones.py`** ⚔️ — Baroque–orchestral GoT arrangement.
-* **`generate_hijo_masterpiece.py`** 🌕 — Advanced *Hijo de la Luna* Masterpiece.
-* **`generate_hijo_splitchoir.py`** 🎤 — Stereo-separated Soprano/Bass choir.
-* **`generate_love_pledge.py`** 💍 — Baroque-style *Love Pledge* arrangement.
-* **`generate_pasdedeux.py`** 🩰 — Analysis + generation for *Pas de Deux*.
-
-
-
-## 📦 **Output Folders**
-
-* **`GoT_baroque_result/`** — GoT MIDI/PDF/PNG.
-* **`HijoDeLuna_baroque_result/`** — Masterpiece + Split Choir versions MIDI/PDF/PNG.
-* **`LovePledge_baroque_result/`** — Love Pledge MIDI/PDF/PNG.
-* **`PasDeDeux_baroque_result/`** — PasDeDeux MIDI/PDF/PNG.
-
+| Rule | Function | Description |
+|----|----|----|
+| Scale Adherence | Domain Generation | Notes must belong to the selected scale |
+| Parallel Fifths & Octaves | `check_parallels` | Prevents parallel perfect intervals |
+| Strong Beat Consonance | `check_harmonic_validity` | No dissonance on strong beats |
+| Suspension Resolution | `check_suspension` | Dissonances must resolve downward |
+| Forbidden Intervals | `check_melodic_validity` | Tritones, 7ths, large leaps forbidden |
+| Final Cadence | `check_final_cadence` | Ends on octave or unison |
 
 <br>
 
-# 🚀 Installation & Quick Start
+## 2️⃣ Soft Constraints (Heuristic Scoring)
 
-## **1. Install Requirements**
+Soft constraints guide the search toward musically superior solutions.
+
+| Rule | Score |
+|----|----|
+| Accented Dissonance | +5 |
+| Contrary Motion | +2 |
+| Passing / Stepwise Motion | +2 |
+| Close Vocal Range | +1 |
+| Hidden Parallels | -5 |
+
+<br>
+
+
+## 📂 Project Structure
+
+### 📁 codes/
+- `baroque_engine.py` — Core CSP solver
+- `generate_gameOfThrones.py`
+- `generate_hijo_masterpiece.py`
+- `generate_hijo_splitchoir.py`
+- `generate_love_pledge.py`
+- `generate_pasdeduex.py`
+
+### 📦 Output Folders
+- `GoT_baroque_result/`
+- `HijoDeLuna_baroque_result/`
+- `LovePledge_baroque_result/`
+- `PasDeDeux_baroque_result/`
+
+<br>
+
+
+## 🚀 Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## **2. Configure MuseScore** (for PDF export)
+Required:
+- music21
+- midiutil
 
-### Windows
+<br>
+
+
+## ▶️ Basic Usage
 
 ```python
-musescore_path = "C:\Program Files\MuseScore 4\bin\MuseScore4.exe"
-```
+from codes.baroque_engine import BaroqueEngine
 
-### macOS
+cantus = [60, 62, 64, 65, 67, 69, 71, 72]
 
-```python
-musescore_path = "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
-```
+engine = BaroqueEngine(
+    cantus_firmus=cantus,
+    scale_root=60,
+    scale_type="major",
+    num_bars=8
+)
 
-## **3. Run a Script**
-
-```bash
-python codes/generate_gameOfThrones.py
-python codes/generate_hijo_masterpiece.py
+melody = engine.generate_counterpoint()
+engine.save_to_midi("output.mid")
 ```
 
 <br>
 
-# 📤 Output Types
 
-| File               | Meaning                            |
-| ------------------ | ---------------------------------- |
-| 🎹 `.mid`          | Playable MIDI file                 |
-| 🎼 `.pdf`          | Score rendered via MuseScore       |
-| 📊 `_analysis.png` | Visual explanation of AI reasoning |
+# 🎼 Algorithm: CSP Baroque Composer (Backtracking)
+
+This algorithm follows the principle:
+
+**“Define rules first, then search for the best musical path.”**
 
 <br>
 
-# 🧠 Algorithm Pipeline
 
-1. Key Detection
-2. Candidate Generation
-3. Hard Constraint Filtering (Pruning)
-4. Soft Constraint Scoring & Sorting
-5. **Backtracking Search** for best path
+## 1️⃣ Initialization
+```plaintext
+CLASS BaroqueEngine:
+- Inputs:
+  - cantus_firmus
+  - scale_root
+  - scale_type
+  - num_bars
+
+PROCESS:
+1. Generate valid scale notes  
+   ScaleNotes = [60, 62, 64, 65, 67, ...]
+
+2. Start CSP search  
+   RESULT = Backtrack(current_melody=[])
 
 ---
+```
+## 2️⃣ Backtracking Core
+```plaintext
+FUNCTION Backtrack(current_melody):
 
+IF length(current_melody) == length(cantus_firmus):
+- IF final cadence valid → RETURN solution
+- ELSE → RETURN failure
+```
+<br>
+
+
+## 3️⃣ Domain Generation
+```plaintext
+
+current_index = len(current_melody)  
+cf_note = cantus_firmus[current_index]  
+possible_notes = GetAllNotesInScale()
+```
+<br>
+
+
+## 4️⃣ Hard Constraint Filtering (Pruning)
+```plaintext
+
+FOR each candidate_note IN possible_notes:
+
+- IF melodic interval > 12 semitones → SKIP
+- IF strong beat AND harmonic interval dissonant → SKIP
+- IF parallel 5th or octave detected → SKIP
+- IF unresolved suspension → SKIP
+
+ADD candidate_note TO valid_candidates
+```
+<br>
+
+
+## 5️⃣ Soft Constraint Sorting (Heuristics)
+```plaintext
+
+SORT valid_candidates by SCORE:
+
+- Contrary motion → +2
+- Stepwise motion → +2
+- Suspension preparation → +5
+- Hidden parallel → -5
+```
+<br>
+
+
+## 6️⃣ Recursive Search
+```plaintext
+
+FOR each selected_note IN valid_candidates:
+
+- current_melody.ADD(selected_note)
+- result = Backtrack(current_melody)
+
+IF result != failure:
+- RETURN result
+
+ELSE:
+- current_melody.REMOVE_LAST()
+
+RETURN failure
+```
+<br>
+
+
+## 7️⃣ Constraint Helper Functions
+```plaintext
+
+FUNCTION IsDissonant(note1, note2):
+- interval = |note1 - note2| % 12
+- Consonant intervals: unison, 3rd, 5th, 6th, octave
+- Otherwise → dissonant
+
+FUNCTION CheckParallels(n1, n2, cf1, cf2):
+- Detects parallel fifths and octaves
+```
+<br>
+
+
+## 📤 Outputs
+
+| File | Description |
+|----|----|
+| .mid | MIDI playback |
+| .pdf / .musicxml | Sheet music |
+| _Analiz.png | Constraint analysis |
+
+<br>
+
+🎼 ArtiFux demonstrates how classical Baroque counterpoint can be modeled as a Constraint Satisfaction Problem and solved using heuristic backtracking search.
